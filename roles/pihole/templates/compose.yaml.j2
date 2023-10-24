@@ -1,0 +1,82 @@
+version: "3.4"
+services:
+  pihole:
+    container_name: pihole
+    hostname: pihole
+    restart: always
+    image: "{{ pihole_image }}"
+    dns:
+      - "127.0.0.1"
+      - "{{ static_dns }}"
+    networks:
+      - dns
+    depends_on:
+      doh-google:
+        condition: service_started
+      doh-cloudflare:
+        condition: service_started
+    volumes:
+      - "/home/{{ ansible_user }}/pihole/pihole/:/etc/pihole/"
+      - "/home/{{ ansible_user }}/pihole/dnsmasq.d/:/etc/dnsmasq.d/"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 8081:80
+      - 53:53/tcp
+      - 53:53/udp
+    environment:
+      FTLCONF_LOCAL_IPV4: "{{ dns_vip }}"
+      TZ: "{{ timezone }}"
+      WEBPASSWORD: "{{ pihole_webpassword }}"
+      PIHOLE_DNS_: "{{ pihole_upstreams | join(';') }}"
+      DNSMASQ_LISTENING: "all"
+      FTLCONF_MAXDBDAYS: "{{ pihole_ftl_max_db_days }}"
+      FTLCONF_PIHOLE_PTR: "{{ pihole_virtual_host }}"
+    healthcheck:
+      test: curl -f "http://localhost/admin" || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  doh-cloudflare: &doh-service
+    container_name: doh-cloudflare
+    hostname: doh-cloudflare
+    restart: always
+    image: "{{ cloudflared_image }}"
+    command: |
+      proxy-dns \
+        --upstream https://1.1.1.1/dns-query \
+        --upstream https://1.0.0.1/dns-query
+    networks:
+      - dns
+    environment:
+      TUNNEL_METRICS: "0.0.0.0:9001"
+      TUNNEL_DNS_ADDRESS: "0.0.0.0"
+    expose:
+      - 53/tcp
+      - 53/udp
+      - 9001/tcp
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ## Health checks dont work because curl and wget not present in cloudflared
+    # healthcheck:
+    #   test: curl -f "http://localhost:9001/ready" || exit 1
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 1s
+
+  doh-google:
+    <<: *doh-service
+    container_name: doh-google
+    hostname: doh-google
+    command: |
+      proxy-dns \
+        --upstream https://8.8.8.8/dns-query \
+        --upstream https://8.8.4.4/dns-query
+    networks:
+      - dns
+
+networks:
+  dns:

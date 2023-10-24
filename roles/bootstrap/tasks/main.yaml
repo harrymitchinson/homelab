@@ -1,0 +1,144 @@
+- name: Add ssh key
+  ansible.posix.authorized_key:
+    key: https://github.com/{{ github_user_for_ssh_key }}.keys
+    user: "{{ ansible_user }}"
+    comment: "github-{{ github_user_for_ssh_key }}"
+
+- name: Lock password for {{ ansible_user }}
+  user:
+    name: "{{ ansible_user }}"
+    password_lock: yes
+
+- name: Update `.bashrc `for {{ ansible_user }}
+  blockinfile:
+    path: "/home/{{ ansible_user }}/.bashrc"
+    block: alias ll='ls -la'
+
+- name: Update `.bashrc` for root
+  blockinfile:
+    path: "{{ ansible_user_dir }}/.bashrc"
+    block: |
+      export LS_OPTIONS='--color=auto'
+      eval "`dircolors`"
+      alias ls='ls $LS_OPTIONS'
+      alias ll='ls $LS_OPTIONS -la'
+      alias l='ls $LS_OPTIONS -lA'
+
+      if ! shopt -oq posix; then
+        if [ -f /usr/share/bash-completion/bash_completion ]; then
+          . /usr/share/bash-completion/bash_completion
+        elif [ -f /etc/bash_completion ]; then
+          . /etc/bash_completion
+        fi
+      fi
+
+- name: Set timezone
+  lineinfile:
+    path: /etc/timezone
+    regexp: "^"
+    line: "{{ timezone }}"
+
+- name: Set localtime
+  file:
+    src: /usr/share/zoneinfo/{{ timezone }}
+    dest: /etc/localtime
+    state: link
+
+- name: Set `/etc/hostname`
+  lineinfile:
+    path: /etc/hostname
+    regexp: "^"
+    line: "{{ inventory_hostname }}"
+  notify: Reboot
+
+- name: Set `/etc/hosts`
+  lineinfile:
+    path: /etc/hosts
+    regexp: "^127.0.1.1"
+    line: 127.0.1.1       {{ inventory_hostname }}
+  notify: Reboot
+
+- name: Set `/boot/config.txt`
+  blockinfile:
+    path: /boot/config.txt
+    insertafter: "[all]"
+    block: |
+      dtoverlay=disable-wifi
+  notify: Reboot
+
+- name: Disable xdg-user-dirs
+  lineinfile:
+    path: /etc/xdg/user-dirs.conf
+    regexp: ^enabled=
+    line: enabled=False
+
+- name: Force xdg-user-dirs to $HOME
+  copy:
+    dest: /home/{{ ansible_user }}/.config/user-dirs.dirs
+    mode: 0600
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    content: |
+      XDG_DESKTOP_DIR="$HOME"
+      XDG_DOWNLOAD_DIR="$HOME"
+      XDG_TEMPLATES_DIR="$HOME"
+      XDG_PUBLICSHARE_DIR="$HOME"
+      XDG_DOCUMENTS_DIR="$HOME"
+      XDG_MUSIC_DIR="$HOME"
+      XDG_PICTURES_DIR="$HOME"
+      XDG_VIDEOS_DIR="$HOME"
+
+- name: Remove default user directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - Bookshelf
+    - Desktop
+    - Documents
+    - Downloads
+    - Music
+    - Pictures
+    - Public
+    - Templates
+    - Videos
+
+- name: Install unattended-upgrades
+  apt:
+    force_apt_get: yes
+    name:
+      - unattended-upgrades
+      - apt-listchanges
+    install_recommends: no
+
+- name: Copy `20auto-upgrades`
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "3";
+      APT::Periodic::Verbose "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy `50unattended-upgrades`
+  copy:
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+      };
+      Unattended-Upgrade::Package-Blacklist {
+      };
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "02:{{ (10 + (groups.all.index(inventory_hostname) * 10))|int }}";
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Flush handlers
+  meta: flush_handlers

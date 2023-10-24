@@ -1,0 +1,82 @@
+- name: Create pihole directory
+  file:
+    path: "/home/{{ ansible_user }}/pihole"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Configure `/etc/hosts`
+  blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED BLOCK pihole"
+    block: '{{ lookup("template", "hosts.j2") }}'
+  register: hosts_custom
+
+- name: Create dnsmasq.d directory
+  file:
+    path: "/home/{{ ansible_user }}/pihole/dnsmasq.d"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create `50-custom.conf`
+  template:
+    dest: "/home/{{ ansible_user }}/pihole/dnsmasq.d/50-custom.conf"
+    src: 50-custom.conf.j2
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0755
+  register: dnsmasq_custom
+
+- name: Create pihole docker service directory
+  file:
+    path: "/home/{{ ansible_user }}/docker/pihole"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create `compose.yaml`
+  template:
+    dest: "/home/{{ ansible_user }}/docker/pihole/compose.yaml"
+    src: compose.yaml.j2
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0755
+  register: compose_yml
+
+- name: Run docker compose pull
+  command:
+    chdir: /home/{{ ansible_user }}/docker/pihole
+    cmd: docker compose pull
+  register: compose_pull
+  changed_when:
+    - "'Pull complete' in compose_pull.stdout"
+
+- name: Redeploy pihole
+  block:
+    - name: Run docker compose down
+      command:
+        chdir: /home/{{ ansible_user }}/docker/pihole
+        cmd: docker compose down
+
+    - name: Run docker compose up
+      command:
+        chdir: /home/{{ ansible_user }}/docker/pihole
+        cmd: docker compose up --detach --wait --remove-orphans
+
+- name: Check pihole container
+  uri:
+    url: http://localhost:8081/admin
+  register: result
+  until: result.status == 200
+  retries: 5
+  delay: 10
+
+- name: Remove old image versions
+  docker_prune:
+    images: yes
+    images_filters:
+      dangling: false

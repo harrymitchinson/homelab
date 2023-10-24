@@ -1,0 +1,9 @@
+- include_role:
+    name: keepalived
+  vars:
+    name: caddy
+    vip: "{{ caddy_vip }}"
+    virtual_router_id: 2
+    check: |
+      #!/bin/bash
+      [ "$(docker inspect -f "{%raw%}{{.State.Health.Status}}{%endraw%}" caddy)" = "healthy" ]

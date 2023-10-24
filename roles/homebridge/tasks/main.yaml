@@ -1,0 +1,58 @@
+- name: Create homebridge directory
+  file:
+    path: "/home/{{ ansible_user }}/homebridge"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create homebridge docker service directory
+  file:
+    path: "/home/{{ ansible_user }}/docker/homebridge"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create `compose.yaml`
+  template:
+    dest: "/home/{{ ansible_user }}/docker/homebridge/compose.yaml"
+    src: compose.yaml.j2
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0755
+  register: compose_yml
+
+- name: Run docker compose pull
+  command:
+    chdir: /home/{{ ansible_user }}/docker/homebridge
+    cmd: docker compose pull
+  register: compose_pull
+  changed_when:
+    - "'Pull complete' in compose_pull.stdout"
+
+- name: Redeploy pihole
+  block:
+    - name: Run docker compose down
+      command:
+        chdir: /home/{{ ansible_user }}/docker/homebridge
+        cmd: docker compose down
+
+    - name: Run docker compose up
+      command:
+        chdir: /home/{{ ansible_user }}/docker/homebridge
+        cmd: docker compose up --detach --wait --remove-orphans
+
+- name: Check homebridge container
+  uri:
+    url: http://localhost:8581/admin
+  register: result
+  until: result.status == 200
+  retries: 5
+  delay: 10
+
+- name: Remove old image versions
+  docker_prune:
+    images: yes
+    images_filters:
+      dangling: false

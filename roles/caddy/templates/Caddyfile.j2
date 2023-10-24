@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+(common) {
+    header /* {
+        -Server
+    }
+}
+
+{{ pihole_virtual_host }} {
+    redir / /admin/
+    reverse_proxy {{ dns_vip }}:8081
+
+    import common
+}
+
+{{ homebridge_virtual_host }} {
+    reverse_proxy {{ hostvars[groups['homebridge'][0]].ansible_host }}:8581
+
+    import common
+}

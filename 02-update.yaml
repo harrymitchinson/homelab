@@ -1,0 +1,37 @@
+- name: Gather facts
+  hosts: all
+  tasks: []
+
+- name: Update common
+  hosts: all
+  become: true
+  serial: 1
+  roles:
+    - stop_keepalived
+    - updates
+    - start_keepalived
+
+- name: Update pi
+  hosts: pihole
+  become: true
+  serial: 1
+  roles:
+    - stop_keepalived
+    - pihole
+    - start_keepalived
+
+- name: Update caddy
+  hosts: caddy
+  serial: 1
+  become: true
+  roles:
+    - stop_keepalived
+    - caddy
+    - start_keepalived
+
+- name: Update homebridge
+  hosts: homebridge
+  become: true
+  serial: 1
+  roles:
+    - homebridge

@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+
+domain={{ pihole_domain }}
+
+{% for key, value in host_records.items() %}
+address=/{{ key }}/{{ value }}
+{% endfor %}
+
+{% for key, value in cname_records.items() %}
+cname={{ key }},{{ value }}
+{% endfor %}
+

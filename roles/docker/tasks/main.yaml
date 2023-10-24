@@ -1,0 +1,64 @@
+- name: Install dependencies
+  apt:
+    force_apt_get: yes
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+
+- name: Add docker apt key
+  apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+- name: Add docker apt repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable
+    filename: docker
+
+- name: Install docker
+  apt:
+    force_apt_get: yes
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      - python3-setuptools
+      - python3-pip
+    install_recommends: no
+
+- name: Hold docker packages
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: docker
+
+- name: Configure `daemon.json`
+  copy:
+    dest: /etc/docker/daemon.json
+    mode: 0600
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+  notify: Restart docker
+
+- name: Flush handlers
+  meta: flush_handlers

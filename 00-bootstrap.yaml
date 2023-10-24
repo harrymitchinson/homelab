@@ -1,0 +1,15 @@
+- name: Bootstrap common
+  hosts: all
+  become: true
+  serial: 1
+  roles:
+    - bootstrap
+    - updates
+    - sshd
+
+- name: Bootstrap docker
+  hosts: docker
+  become: true
+  serial: 1
+  roles:
+    - docker

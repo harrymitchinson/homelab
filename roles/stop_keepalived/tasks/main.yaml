@@ -1,0 +1,12 @@
+- name: Populate service facts
+  service_facts:
+
+- name: Ensure keepalived service is stopped
+  service:
+    name: keepalived
+    state: stopped
+  register: result
+  when: "'keepalived' in services"
+  failed_when:
+    - result.failed == true
+    - '"Could not find the requested service" not in result.msg'

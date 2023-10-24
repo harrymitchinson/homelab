@@ -1,0 +1,38 @@
+- name: Install sqlite3
+  apt:
+    force_apt_get: yes
+    name: sqlite3
+  become: true
+
+- name: Generate ssh keypair
+  community.crypto.openssh_keypair:
+    comment: pihole-sync-{{ inventory_hostname }}
+    path: .ssh/id_rsa_sync
+  register: ssh_key
+
+- name: Add key to authorized_keys on all other nodes
+  ansible.posix.authorized_key:
+    key: "{{ ssh_key.public_key }}"
+    user: "{{ ansible_user }}"
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all']|difference([inventory_hostname]) }}"
+
+- name: Create sync folder
+  file:
+    path: pihole_sync
+    state: directory
+    mode: 0755
+  register: sync_dir
+
+- name: Copy sync script
+  template:
+    dest: "{{ sync_dir.path }}/pihole_sync.sh"
+    src: pihole_sync.j2
+    mode: 0755
+
+- name: Schedule sync with cron
+  ansible.builtin.cron:
+    hour: "2,14"
+    minute: "0"
+    job: "{{ ansible_user_dir }}/{{ sync_dir.path }}/pihole_sync.sh"
+    name: pihole-sync

@@ -1,0 +1,59 @@
+- name: Create caddy directory
+  file:
+    path: "/home/{{ ansible_user }}/caddy"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create `Caddyfile`
+  template:
+    dest: "/home/{{ ansible_user }}/caddy/Caddyfile"
+    src: Caddyfile.j2
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0755
+  register: caddyfile
+
+- name: Create caddy docker service directory
+  file:
+    path: "/home/{{ ansible_user }}/docker/caddy"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: directory
+    mode: 0755
+
+- name: Create `compose.yaml`
+  template:
+    dest: "/home/{{ ansible_user }}/docker/caddy/compose.yaml"
+    src: compose.yaml.j2
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0755
+  register: compose_yml
+
+- name: Run docker compose pull
+  command:
+    chdir: /home/{{ ansible_user }}/docker/caddy
+    cmd: docker compose pull
+  register: compose_pull
+  changed_when:
+    - "'Pull complete' in compose_pull.stdout"
+
+- name: Redeploy caddy
+  block:
+    - name: Run docker compose down
+      command:
+        chdir: /home/{{ ansible_user }}/docker/caddy
+        cmd: docker compose down
+
+    - name: Run docker compose up
+      command:
+        chdir: /home/{{ ansible_user }}/docker/caddy
+        cmd: docker compose up --detach --wait --remove-orphans
+
+- name: Remove old image versions
+  docker_prune:
+    images: yes
+    images_filters:
+      dangling: false

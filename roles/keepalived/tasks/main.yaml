@@ -1,0 +1,68 @@
+- name: Enable nonlocal IP binding
+  blockinfile:
+    path: /etc/sysctl.conf
+    block: net.ipv4.ip_nonlocal_bind = 1
+  notify: Reload sysctl config
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Install keepalived
+  apt:
+    force_apt_get: yes
+    name: keepalived
+
+- name: Copy check_{{ name }}.sh
+  copy:
+    dest: /etc/keepalived/check_{{ name }}.sh
+    mode: 0755
+    content: "{{ check }}"
+
+- name: Configure keepalived
+  blockinfile:
+    path: /etc/keepalived/keepalived.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK setup"
+    block: |
+      global_defs {
+          script_user {{ ansible_user }} docker
+          enable_script_security
+          max_auto_priority
+          vrrp_no_swap
+          checker_no_swap
+      }
+    mode: 0644
+  notify: Restart keepalived
+
+- name: Configure keepalived {{ name }}
+  blockinfile:
+    path: /etc/keepalived/keepalived.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ name }}"
+    block: |
+      vrrp_script check_{{ name }} {
+          script "/etc/keepalived/check_{{ name }}.sh"
+          interval 5
+          timeout 4
+          fall 1
+          rise 1
+      }
+
+      vrrp_instance {{ name }}-ipv4 {
+          interface {{ ansible_default_ipv4.interface }}
+          virtual_router_id {{ virtual_router_id }}
+          priority {{ priority }}
+          advert_int 1
+          preempt_delay 900
+
+          virtual_ipaddress {
+              {{ vip }}/24
+          }
+
+          track_script {
+              check_{{ name }}
+          }
+      }
+    mode: 0644
+  notify: Restart keepalived
+
+- name: Flush handlers
+  meta: flush_handlers

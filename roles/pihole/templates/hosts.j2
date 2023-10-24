@@ -1,0 +1,5 @@
+{% for item in groups['all'] %}
+{% if not hostvars[item].inventory_hostname == inventory_hostname %}
+{{ hostvars[item].ansible_default_ipv4.address }} {{ hostvars[item].inventory_hostname }}
+{% endif %}
+{% endfor %}

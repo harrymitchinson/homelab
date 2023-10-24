@@ -1,0 +1,9 @@
+- include_role:
+    name: keepalived
+  vars:
+    name: pihole
+    vip: "{{ dns_vip }}"
+    virtual_router_id: 1
+    check: |
+      #!/bin/bash
+      [ "$(docker inspect -f "{%raw%}{{.State.Health.Status}}{%endraw%}" pihole)" = "healthy" ]

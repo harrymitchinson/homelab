@@ -1,0 +1,31 @@
+- name: Gather facts
+  hosts: all
+  tasks: []
+
+- name: Deploy pihole
+  hosts: pihole
+  become: true
+  serial: 1
+  roles:
+    - stop_keepalived
+    - keepalived-pihole
+    - pihole
+    - sync
+    - start_keepalived
+
+- name: Deploy caddy
+  hosts: caddy
+  serial: 1
+  become: true
+  roles:
+    - stop_keepalived
+    - keepalived-caddy
+    - caddy
+    - start_keepalived
+
+- name: Deploy homebridge
+  hosts: homebridge
+  serial: 1
+  become: true
+  roles:
+    - homebridge

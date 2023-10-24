@@ -1,0 +1,19 @@
+version: "3.4"
+services:
+  pihole:
+    container_name: homebridge
+    hostname: homebridge
+    restart: always
+    image: "{{ homebridge_image }}"
+    network_mode: host
+    volumes:
+      - "/home/{{ ansible_user }}/homebridge/:/homebridge"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      TZ: "{{ timezone }}"
+    healthcheck:
+      test: curl -f "http://localhost:8581" || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
