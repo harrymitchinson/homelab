@@ -2,15 +2,15 @@
 
 key="-i {{ ansible_user_dir }}/{{ ssh_key.filename }}"
 host_key_check="-o StrictHostKeyChecking=no"
-target="{{ ansible_user }}@{{ dns_vip }}"
+target="{{ ansible_user }}@{{ ns_vip }}"
 sync_dir="{{ ansible_user_dir }}/{{ sync_dir.path }}"
 pihole_dir="{{ ansible_user_dir }}/pihole"
 
-if [[ $(ip a | grep {{ dns_vip }}) ]]; then
+if [[ $(ip a | grep {{ ns_vip }}) ]]; then
   nice -n 19 sqlite3 $pihole_dir/pihole/gravity.db ".backup $sync_dir/gravity.dump"
 fi
 
-if [[ ! $(ip a | grep {{ dns_vip }}) ]]; then
+if [[ ! $(ip a | grep {{ ns_vip }}) ]]; then
   sleep 60
 
   RSYNC_GRAVITY=$(rsync -a --info=name -e "ssh $key $host_key_check" $target:$sync_dir/gravity.dump $sync_dir)

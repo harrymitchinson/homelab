@@ -2,63 +2,82 @@ all:
   hosts:
     pi4b-2gb-01:
       ansible_host: 192.168.68.249
-      priority: 100
+      priority: 99
     pi4b-2gb-02:
       ansible_host: 192.168.68.250
-      priority: 101
+      priority: 100
+
   vars:
     ansible_user: pi
     ansible_password: raspberry # only used for first bootstrap
     ansible_python_interpreter: /usr/bin/python3
+
     github_user_for_ssh_key: harrymitchinson
-    timezone: "Europe/Paris"
-    dns_vip: "192.168.68.10"
-    caddy_vip: "192.168.68.12"
-    router_ip: "192.168.68.1"
+    timezone: Europe/Paris
+
+    router_ip: 192.168.68.1
+    ns_vip: 192.168.68.10
+    caddy_vip: 192.168.68.12
+
   children:
     pihole:
     homebridge:
     caddy:
     docker:
+
 docker:
   hosts:
     pi4b-2gb-01:
     pi4b-2gb-02:
+
+pihole:
+  hosts:
+    pi4b-2gb-01:
+    pi4b-2gb-02:
+  vars:
+    static_dns: 1.1.1.1
+    pihole_image: pihole/pihole:2023.10.0
+    cloudflared_image: cloudflare/cloudflared:2023.8.2
+
+    pihole_ftl_max_db_days: 180
+    pihole_webpassword: admin
+    pihole_domain: home
+
+    # pihole_upstreams:
+    #   - "1.1.1.1"
+    #   - "1.0.0.1"
+    pihole_upstreams:
+      - pihole-doh-cloudflare
+      - pihole-doh-google
+    pihole_doh_providers:
+      cloudflare:
+        - https://1.1.1.1/dns-query
+        - https://1.0.0.1/dns-query
+      google:
+        - https://8.8.8.8/dns-query
+        - https://8.8.4.4/dns-query
+
+    pihole_virtual_host: pihole.home
+    host_records:
+      deco.home: "{{ router_ip }}"
+      ns.home: "{{ ns_vip }}"
+      caddy.home: "{{ caddy_vip }}"
+      nas.home: 192.168.68.108
+    cname_records:
+      homebridge.home: caddy.home
+
 caddy:
   hosts:
     pi4b-2gb-01:
     pi4b-2gb-02:
   vars:
     caddy_image: arm64v8/caddy:2.7
-    pihole_virtual_host: http://pihole.home
-    homebridge_virtual_host: http://homebridge.home
+    pihole_virtual_host: pihole.home
+    homebridge_virtual_host: homebridge.home
+    ca_name: caddy.home
+
 homebridge:
   hosts:
     pi4b-2gb-01:
   vars:
     homebridge_image: homebridge/homebridge:latest
-pihole:
-  hosts:
-    pi4b-2gb-01:
-    pi4b-2gb-02:
-  vars:
-    static_dns: "1.1.1.1"
-    pihole_image: pihole/pihole:2023.10.0
-    cloudflared_image: cloudflare/cloudflared:2023.8.2
-    pihole_ftl_max_db_days: "180"
-    pihole_webpassword: admin
-    pihole_upstreams:
-      - "1.1.1.1"
-      - "1.0.0.1"
-    # pihole_upsteams:
-    #   - doh-cloudflare
-    #   - doh-google
-    pihole_virtual_host: pihole.home
-    pihole_domain: home
-    host_records:
-      deco.home: "{{ router_ip }}"
-      ns.home: "{{ dns_vip }}"
-      caddy.home: "{{ caddy_vip }}"
-      nas.home: "192.168.68.108"
-    cname_records:
-      homebridge.home: caddy.home

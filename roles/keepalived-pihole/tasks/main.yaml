@@ -2,7 +2,7 @@
     name: keepalived
   vars:
     name: pihole
-    vip: "{{ dns_vip }}"
+    vip: "{{ ns_vip }}"
     virtual_router_id: 1
     check: |
       #!/bin/bash

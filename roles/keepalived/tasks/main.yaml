@@ -40,10 +40,10 @@
     block: |
       vrrp_script check_{{ name }} {
           script "/etc/keepalived/check_{{ name }}.sh"
-          interval 5
-          timeout 4
-          fall 1
-          rise 1
+          interval 1
+          timeout 5
+          fall 2
+          rise 3
       }
 
       vrrp_instance {{ name }}-ipv4 {

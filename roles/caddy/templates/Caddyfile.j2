@@ -4,17 +4,16 @@
     header /* {
         -Server
     }
+    tls internal
 }
 
 {{ pihole_virtual_host }} {
     redir / /admin/
-    reverse_proxy {{ dns_vip }}:8081
-
+    reverse_proxy {{ ns_vip }}:8081
     import common
 }
 
 {{ homebridge_virtual_host }} {
     reverse_proxy {{ hostvars[groups['homebridge'][0]].ansible_host }}:8581
-
     import common
 }
