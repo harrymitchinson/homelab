@@ -36,16 +36,13 @@ pihole:
     pi4b-2gb-02:
   vars:
     static_dns: 1.1.1.1
-    pihole_image: pihole/pihole:2023.10.0
-    cloudflared_image: cloudflare/cloudflared:2023.8.2
+    pihole_image: pihole/pihole:2024.02.2
+    cloudflared_image: cloudflare/cloudflared:2024.2.1
 
     pihole_ftl_max_db_days: 180
     pihole_webpassword: admin
     pihole_domain: home
 
-    # pihole_upstreams:
-    #   - "1.1.1.1"
-    #   - "1.0.0.1"
     pihole_upstreams:
       - pihole-doh-cloudflare
       - pihole-doh-google
@@ -71,7 +68,7 @@ caddy:
     pi4b-2gb-01:
     pi4b-2gb-02:
   vars:
-    caddy_image: arm64v8/caddy:2.7
+    caddy_image: arm64v8/caddy:2.7.6
     pihole_virtual_host: pihole.home
     homebridge_virtual_host: homebridge.home
     ca_name: caddy.home
